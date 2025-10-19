@@ -1,9 +1,7 @@
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
 import Drawer from '@mui/material/Drawer';
-import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
 import ConfigBar from './ConfigBar';
+import AnimationControl from './AnimationControl';
 import Visualizer from './Visualizer';
 import { Graph } from './Graph';
 import { Solution } from './Solution';
@@ -32,31 +30,31 @@ function App() {
   const [showGoalVectors, setShowGoalVectors] = React.useState<boolean>(false);
   const [drawerOpen, setDrawerOpen] = React.useState<boolean>(true);
 
-  const handleSkipBackward = () => {
+  const onSkipBackward = () => {
     if (pixiAppRef.current?.skipBackward) {
       pixiAppRef.current.skipBackward();
     }
   }
 
-  const handleSkipForward = () => {
+  const onSkipForward = () => {
     if (pixiAppRef.current?.skipForward) {
       pixiAppRef.current.skipForward();
     }
   }
 
-  const handleRestart = () => {
+  const onRestart = () => {
     if (pixiAppRef.current?.restart) {
       pixiAppRef.current.restart();
     }
   }
 
-  const handleFitView = () => {
+  const onFitView = () => {
     if (pixiAppRef.current?.fit) {
       pixiAppRef.current.fit();
     }
   }
 
-  const handleTakeScreenshot = () => {
+  const onTakeScreenshot = () => {
     if (pixiAppRef.current?.takeScreenshot) {
       pixiAppRef.current.takeScreenshot();
     }
@@ -64,23 +62,8 @@ function App() {
 
   return (
     <StrictMode>
-    <Box sx={{ flexGrow: 1, position: 'relative' }}>
-      <IconButton
-        onClick={() => setDrawerOpen(true)}
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 1000,
-          backgroundColor: 'background.paper',
-          '&:hover': {
-            backgroundColor: 'action.hover',
-          },
-        }}
-      >
-        <MenuIcon />
-      </IconButton>
-      <Stack sx={{ height: '100vh' }}>
+    <Box sx={{ flexGrow: 1, position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <Visualizer
           pixiAppRef = {pixiAppRef}
           graph={graph}
@@ -95,7 +78,34 @@ function App() {
           showGoals={showGoals}
           showGoalVectors={showGoalVectors}
         />
-      </Stack>
+      </Box>
+
+      <AnimationControl
+        playAnimation={playAnimation}
+        onPlayChange={setPlayAnimation}
+        onSkipBackward={onSkipBackward}
+        onSkipForward={onSkipForward}
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onRestart={onRestart}
+        stepSize={stepSize}
+        onStepSizeChange={setStepSize}
+        loopAnimation={loopAnimation}
+        onLoopAnimationChange={setLoopAnimation}
+        onFitView={onFitView}
+        showAgentId={showAgentId}
+        onShowAgentIdChange={setShowAgentId}
+        tracePaths={tracePaths}
+        onTracePathsChange={setTracePaths}
+        canScreenshot={canScreenshot}
+        takeScreenshot={onTakeScreenshot}
+        showCellId={showCellId}
+        setShowCellId={setShowCellId}
+        showGoals={showGoals}
+        setShowGoals={setShowGoals}
+        showGoalVectors={showGoalVectors}
+        setShowGoalVectors={setShowGoalVectors}
+      />
+
       <Drawer
         anchor="right"
         open={drawerOpen}
@@ -103,7 +113,8 @@ function App() {
         keepMounted
         sx={{
           '& .MuiDrawer-paper': {
-            width: 400,
+            width: 420,
+            backgroundColor: 'background.default',
           },
         }}
       >
@@ -111,28 +122,25 @@ function App() {
           graph={graph}
           onGraphChange={useCallback((graph: Graph | null) => setGraph(graph), [])}
           onSolutionChange={useCallback((solution: Solution | null) => setSolution(solution), [])}
-          playAnimation={playAnimation}
-          onPlayAnimationChange={setPlayAnimation}
-          onSkipBackward={handleSkipBackward}
-          onSkipForward={handleSkipForward}
-          onRestart={handleRestart}
+          onRestart={onRestart}
           stepSize={stepSize}
           onStepSizeChange={setStepSize}
           loopAnimation={loopAnimation}
           onLoopAnimationChange={setLoopAnimation}
-          onFitView={handleFitView}
+          onFitView={onFitView}
           showAgentId={showAgentId}
           onShowAgentIdChange={setShowAgentId}
           tracePaths={tracePaths}
           onTracePathsChange={setTracePaths}
           canScreenshot={canScreenshot}
-          takeScreenshot={handleTakeScreenshot}
+          takeScreenshot={onTakeScreenshot}
           showCellId={showCellId}
           setShowCellId={setShowCellId}
           showGoals={showGoals}
           setShowGoals={setShowGoals}
           showGoalVectors={showGoalVectors}
           setShowGoalVectors={setShowGoalVectors}
+          onCloseDrawer={() => setDrawerOpen(false)}
         />
       </Drawer>
     </Box>

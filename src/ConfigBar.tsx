@@ -1,21 +1,18 @@
-import AnimationControl from './AnimationControl';
 import { Graph } from './Graph';
 import { parseSolution, Solution } from './Solution';
-import { Divider, Stack, Button } from '@mui/material';
-import { MuiFileInput } from "mui-file-input";
+import { Divider, Stack, Box, IconButton } from '@mui/material';
 import React, { useEffect } from 'react';
-import ClearIcon from '@mui/icons-material/Clear';
-import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import Tooltip from '@mui/material/Tooltip';
+import CloseIcon from '@mui/icons-material/Close';
+import QuickStartSection from './QuickStartSection';
+import FilesSection from './FilesSection';
+import SpeedControlSection from './SpeedControlSection';
+import ControlsSection from './ControlsSection';
+import DisplaySection from './DisplaySection';
 
 interface ConfigBarProps {
   graph: Graph | null;
   onGraphChange: (graph: Graph | null) => void;
   onSolutionChange: (solution: Solution | null) => void;
-  playAnimation: boolean;
-  onPlayAnimationChange: (playAnimation: boolean) => void;
-  onSkipBackward: () => void;
-  onSkipForward: () => void;
   onRestart: () => void;
   stepSize: number;
   onStepSizeChange: (speed: number) => void;
@@ -34,16 +31,13 @@ interface ConfigBarProps {
   setShowGoals: (showGoals: boolean) => void;
   showGoalVectors: boolean;
   setShowGoalVectors: (showGoalVectors: boolean) => void;
+  onCloseDrawer: () => void;
 }
 
 function ConfigBar({
   graph,
   onGraphChange,
   onSolutionChange,
-  playAnimation,
-  onPlayAnimationChange,
-  onSkipBackward,
-  onSkipForward,
   onRestart,
   stepSize,
   onStepSizeChange,
@@ -62,6 +56,7 @@ function ConfigBar({
   setShowGoals,
   showGoalVectors,
   setShowGoalVectors,
+  onCloseDrawer,
 }: ConfigBarProps) {
   const repoName = "JustinShetty/mapf-visualizer";
   const [mapFile, setMapFile] = React.useState<File | null>(null);
@@ -142,100 +137,79 @@ function ConfigBar({
     blurActiveElement();
   };
 
-  const downloadFile = (file: File) => {
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   return (
-    <Stack direction="column" spacing={1} sx={{padding: 2}} >
-      <Stack direction="column" spacing={1}>
-        <Button variant="outlined" onClick={() => handleLoadDemo("2x2")}>Load 2x2 demo</Button>
-        <Button variant="outlined" onClick={() => handleLoadDemo("random-32-32-20")}>Load 32x32 demo</Button>
-      </Stack>
-      <Divider />
-      <Stack direction="column" spacing={1}>
-        <h1>Map</h1>
-        <Stack direction="row" spacing={1}>
-          <MuiFileInput
-              value={mapFile}
-              onChange={handleMapChange}
-              placeholder="Select a map file"
-              sx={{width: '100%'}}
-              clearIconButtonProps={{
-                title: "Clear",
-                children: <ClearIcon fontSize="small" />
-              }}
-          />
-          {mapFile &&
-            <Tooltip title={`Download ${mapFile?.name}`}>
-              <Button onClick={() => {downloadFile(mapFile as File)}}>
-                <FileDownloadOutlinedIcon />
-              </Button>
-            </Tooltip>
-          }
-        </Stack>
-        {mapError && <p style={{color: 'red'}}>{mapError}</p>}
-      </Stack>
-      <Divider />
-      <Stack direction="column" spacing={2}>
-          <h1>Solution</h1>
-          <Stack direction="row" spacing={1}>
-            <MuiFileInput
-                value={solutionFile}
-                onChange={handleSolutionChange}
-                placeholder="Select a solution file"
-                sx={{width: '100%'}}
-                clearIconButtonProps={{
-                  title: "Clear",
-                  children: <ClearIcon fontSize="small" />
-                }}
-            />
-            {solutionFile &&
-              <Tooltip title={`Download ${solutionFile?.name}`}>
-                <Button onClick={() => {downloadFile(solutionFile as File)}}>
-                  <FileDownloadOutlinedIcon />
-                </Button>
-              </Tooltip>
-            }
-          </Stack>
-          {solutionError && <p style={{color: 'red'}}>{solutionError}</p>}
-      </Stack>
-      <Divider />
-      <AnimationControl
-        playAnimation={playAnimation}
-        onPlayAnimationChange={onPlayAnimationChange}
-        onSkipBackward={onSkipBackward}
-        onSkipForward={onSkipForward}
-        onRestart={onRestart}
+    <Stack direction="column" spacing={2.5} sx={{padding: 2.5, height: '100%'}} >
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -1, mr: -1 }}>
+        <IconButton onClick={onCloseDrawer} size="small">
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      <QuickStartSection onLoadDemo={handleLoadDemo} />
+
+      <Divider sx={{ opacity: 0.5 }} />
+
+      <FilesSection
+        mapFile={mapFile}
+        onMapChange={handleMapChange}
+        mapError={mapError}
+        solutionFile={solutionFile}
+        onSolutionChange={handleSolutionChange}
+        solutionError={solutionError}
+      />
+
+      <Divider sx={{ opacity: 0.5 }} />
+
+      <SpeedControlSection
         stepSize={stepSize}
         onStepSizeChange={onStepSizeChange}
+      />
+
+      <Divider sx={{ opacity: 0.5 }} />
+
+      <ControlsSection
+        onRestart={onRestart}
         loopAnimation={loopAnimation}
         onLoopAnimationChange={onLoopAnimationChange}
         onFitView={onFitView}
-        showAgentId={showAgentId}
-        onShowAgentIdChange={onShowAgentIdChange}
-        tracePaths={tracePaths}
-        onTracePathsChange={onTracePathsChange}
         canScreenshot={canScreenshot}
         takeScreenshot={takeScreenshot}
+      />
+
+      <Divider sx={{ opacity: 0.5 }} />
+
+      <DisplaySection
+        showAgentId={showAgentId}
+        onShowAgentIdChange={onShowAgentIdChange}
         showCellId={showCellId}
         setShowCellId={setShowCellId}
+        tracePaths={tracePaths}
+        onTracePathsChange={onTracePathsChange}
         showGoals={showGoals}
         setShowGoals={setShowGoals}
         showGoalVectors={showGoalVectors}
         setShowGoalVectors={setShowGoalVectors}
       />
-    <Divider />
-      <a target="_blank" href={`https://github.com/${repoName}`} style={{ color: 'white', width: 'fit-content' }}>
-        {repoName}
-      </a>
+
+      <Box sx={{ flexGrow: 1 }} />
+      <Divider />
+      <Box sx={{ py: 1 }}>
+        <a
+          target="_blank"
+          href={`https://github.com/${repoName}`}
+          style={{
+            color: 'inherit',
+            textDecoration: 'none',
+            fontSize: '0.875rem',
+            opacity: 0.7,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          {repoName}
+        </a>
+      </Box>
     </Stack>
   );
 }
