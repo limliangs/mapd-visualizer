@@ -4,7 +4,7 @@ import ConfigBar from './ConfigBar';
 import AnimationControl from './AnimationControl';
 import Visualizer from './Visualizer';
 import { Graph } from './Graph';
-import { Solution } from './Solution';
+import { Solution, SolutionTasks } from './Solution';
 import React, { useCallback } from 'react';
 import { StrictMode, useRef } from 'react';
 
@@ -19,6 +19,7 @@ function App() {
 
   const [graph, setGraph] = React.useState<Graph | null>(null);
   const [solution, setSolution] = React.useState<Solution | null>(null);
+  const [solutionTasks, setSolutionTasks] = React.useState<SolutionTasks | null>(null);
   const [playAnimation, setPlayAnimation] = React.useState<boolean>(true);
   const [stepSize, setStepSize] = React.useState<number>(1.0);
   const [loopAnimation, setLoopAnimation] = React.useState<boolean>(true);
@@ -68,6 +69,7 @@ function App() {
           pixiAppRef = {pixiAppRef}
           graph={graph}
           solution={solution}
+          solutionTasks={solutionTasks}
           playAnimation={playAnimation}
           stepSize={stepSize}
           loopAnimation={loopAnimation}
@@ -122,6 +124,7 @@ function App() {
           graph={graph}
           onGraphChange={useCallback((graph: Graph | null) => setGraph(graph), [])}
           onSolutionChange={useCallback((solution: Solution | null) => setSolution(solution), [])}
+          onSolutionTasksChange={useCallback((solutionTasks: SolutionTasks | null) => setSolutionTasks(solutionTasks), [])}
           onRestart={onRestart}
           stepSize={stepSize}
           onStepSizeChange={setStepSize}

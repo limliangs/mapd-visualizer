@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallba
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import { Graph } from './Graph';
-import { Solution, Orientation, orientationToRotation } from './Solution';
+import { Solution, SolutionTasks, Orientation, orientationToRotation } from './Solution';
 import { Coordinate } from './Graph';
 import { BACKGROUND_COLOR, GRID_COLOR, TEXT_COLOR, AGENT_COLORS } from './Params';
 
@@ -14,6 +14,7 @@ interface PixiAppProps {
     height: number;
     graph: Graph | null;
     solution: Solution | null;
+    solutionTasks: SolutionTasks | null;
     playAnimation: boolean;
     stepSize: number;
     loopAnimation: boolean;
@@ -30,6 +31,7 @@ const PixiApp = forwardRef(({
     height,
     graph,
     solution,
+    solutionTasks,
     playAnimation,
     stepSize,
     loopAnimation,
@@ -65,6 +67,12 @@ const PixiApp = forwardRef(({
     });  // same order as agentsRef
     const goalMarkersRef = useRef<PIXI.Container>(new PIXI.Container());
     const goalVectorsRef = useRef<PIXI.Container>(new PIXI.Container());
+    const taskPanelRef = useRef<PIXI.Container>(new PIXI.Container());
+    const taskPanelBackgroundRef = useRef<PIXI.Graphics | null>(null);
+    const taskPanelTextRef = useRef<PIXI.Text | null>(null);
+    const taskPanelMaskRef = useRef<PIXI.Graphics | null>(null);
+    const taskPanelScrollOffsetRef = useRef(0);
+    const panelBoundsRef = useRef({ x: 12, y: 48, width: 220, height: 620 });
 
     // Scale a position from grid units to pixels
     const scalePosition = (position: number) : number => {
@@ -160,6 +168,8 @@ const PixiApp = forwardRef(({
         });
     }, [solution]);
 
+    /*
+    Legacy path renderer retained for reference.
     const updatePaths = useCallback((agents: PIXI.Container[], currentTime: number) => {
         if (!solution) return;
 
@@ -218,7 +228,86 @@ const PixiApp = forwardRef(({
             }
         });
     }, [solution]);
+    */
 
+    const updatePathsMapd = useCallback((agents: PIXI.Container[], currentTime: number) => {
+        if (!solution || !solutionTasks) return;
+
+        const currentTimestep = Math.min(Math.floor(currentTime), solution.length - 1);
+        const interpolationProgress = currentTime - currentTimestep;
+
+        agents.forEach((_agent, index) => {
+            const agentLineStyle = {
+                width: GRID_UNIT_TO_PX / 10,
+                color: AGENT_COLORS[index % AGENT_COLORS.length],
+                cap: "round" as const
+            };
+
+            const full_segments = agentPathsRef.current.full.children[index] as PIXI.Container;
+            const partial_segments = agentPathsRef.current.partial.children[index] as PIXI.Container;
+
+            // full_segments.removeChildren();
+            // partial_segments.removeChildren();
+
+            const tasksAtNow = solutionTasks[Math.min(currentTimestep, solutionTasks.length - 1)] ?? [];
+            const activeTask = tasksAtNow.find((task) => task.status === `${index}`);
+            const isCarrying = solution[currentTimestep][index].carrying;
+            const isActive = isCarrying;
+
+            if (!isActive) return;
+
+            const pickup = activeTask?.pickup;
+            const dropoff = activeTask?.dropoff;
+
+            // If task assignment is missing this frame, fall back to current position.
+            if (!pickup) return;
+
+            // Start the trail at the most recent time the agent was at this pickup location.
+            let pathStartTimestep = Infinity;
+            for (let t = currentTimestep; t >= 0; t--) {
+                const pos = solution[t][index].position;
+                if (pos.x === pickup.x && pos.y === pickup.y) {
+                    pathStartTimestep = t;
+                    break;
+                }
+            }
+
+            // Full segments
+            for (let segIndex = pathStartTimestep; segIndex < currentTimestep; segIndex++) {
+                
+                if (activeTask) {
+                    const segment = full_segments.addChild(new PIXI.Graphics());
+                    segment.moveTo(
+                        scalePosition(solution[segIndex][index].position.x),
+                        scalePosition(solution[segIndex][index].position.y)
+                    );
+                    segment.lineTo(
+                        scalePosition(solution[segIndex + 1][index].position.x),
+                        scalePosition(solution[segIndex + 1][index].position.y)
+                    );
+                    segment.stroke(agentLineStyle);
+                }
+            }
+
+            // Partial segment
+            if (interpolationProgress > 0 && currentTimestep < solution.length - 1) {
+                const segment = partial_segments.addChild(new PIXI.Graphics());
+                segment.moveTo(
+                    scalePosition(solution[currentTimestep][index].position.x),
+                    scalePosition(solution[currentTimestep][index].position.y)
+                );
+                const interpolatedPosition = {
+                    x: solution[currentTimestep][index].position.x +
+                        (solution[currentTimestep + 1][index].position.x - solution[currentTimestep][index].position.x) * interpolationProgress,
+                    y: solution[currentTimestep][index].position.y +
+                        (solution[currentTimestep + 1][index].position.y - solution[currentTimestep][index].position.y) * interpolationProgress,
+                }
+                segment.lineTo(scalePosition(interpolatedPosition.x), scalePosition(interpolatedPosition.y));
+                segment.stroke(agentLineStyle);
+            }
+        });
+    }, [solution, solutionTasks]);
+    
     const updateGoalVectors = useCallback((agents: PIXI.Container[]) => {
         if (!solution) return;
         agents.forEach((agent, index) => {
@@ -238,6 +327,43 @@ const PixiApp = forwardRef(({
         });
     }, [solution]);
 
+    const updateTaskPanel = useCallback((currentTime: number) => {
+        if (!solutionTasks || !taskPanelTextRef.current || !taskPanelBackgroundRef.current || !taskPanelMaskRef.current) return;
+
+        const timestep = Math.min(Math.floor(currentTime), solutionTasks.length - 1);
+        const tasksAtTimestep = solutionTasks[timestep] ?? [];
+        const lines = [
+            `Tasks`,
+            ...tasksAtTimestep.map((task, taskId) =>
+                `${taskId}: (${task.pickup.y},${task.pickup.x}) >> (${task.dropoff.y},${task.dropoff.x})  [${task.status}]`
+            )
+        ];
+
+        taskPanelTextRef.current.text = lines.join('\n');
+
+        const panelWidth = 220;
+        const panelHeight = 620;
+        const padding = 14;
+        taskPanelBackgroundRef.current
+            .clear()
+            .roundRect(0, 0, panelWidth, panelHeight, 10)
+            .fill({ color: 0x111111, alpha: 0.25 })
+            .stroke({ color: GRID_COLOR, width: 1, alpha: 0.0 });
+
+        taskPanelMaskRef.current
+            .clear()
+            .rect(padding, padding, panelWidth - padding * 2, panelHeight - padding * 2)
+            .fill({ color: 0xffffff, alpha: 1 });
+
+        const maxScroll = Math.max(0, taskPanelTextRef.current.height - (panelHeight - padding * 2));
+        taskPanelScrollOffsetRef.current = Math.min(maxScroll, Math.max(0, taskPanelScrollOffsetRef.current));
+        taskPanelTextRef.current.y = padding - taskPanelScrollOffsetRef.current;
+
+        // Fix the panel to the left of the screen (canvas)
+        taskPanelRef.current.x = 12;
+        taskPanelRef.current.y = 48;
+    }, [solutionTasks]);
+
     // Animate the solution
     const animateSolution = useCallback(() => {
         if (app === null || viewport === null) return;
@@ -251,6 +377,10 @@ const PixiApp = forwardRef(({
             if (timestepTextRef.current) timestepTextRef.current.text = "";
             if (goalMarkersRef.current) goalMarkersRef.current.removeChildren();
             if (goalVectorsRef.current) goalVectorsRef.current.removeChildren();
+            if (taskPanelRef.current) {
+                taskPanelRef.current.removeChildren();
+                taskPanelRef.current.parent?.removeChild(taskPanelRef.current);
+            }
         }
         if (solution === null) return;
         resetTimestep();
@@ -283,6 +413,28 @@ const PixiApp = forwardRef(({
         solution[solution.length - 1].forEach(() => {
             goalVectors.addChild(new PIXI.Graphics());
         });
+
+        // Task panel on the left side of the grid
+        if (hudRef.current) {
+            hudRef.current.addChild(taskPanelRef.current);
+        }
+        const taskPanel = taskPanelRef.current;
+        taskPanel.removeChildren();
+        taskPanelBackgroundRef.current = taskPanel.addChild(new PIXI.Graphics());
+        taskPanelTextRef.current = taskPanel.addChild(new PIXI.Text({
+            text: '',
+            style: {
+                fontFamily: 'Arial',
+                fontSize: 18,
+                fill: TEXT_COLOR,
+            }
+        }));
+        taskPanelMaskRef.current = taskPanel.addChild(new PIXI.Graphics());
+        taskPanelTextRef.current.style.fontSize *= FONT_SUPER_RESOLUTION_SCALE;
+        taskPanelTextRef.current.scale.set(1 / FONT_SUPER_RESOLUTION_SCALE, 1 / FONT_SUPER_RESOLUTION_SCALE);
+        taskPanelTextRef.current.x = 14;
+        taskPanelTextRef.current.y = 14;
+        taskPanelTextRef.current.mask = taskPanelMaskRef.current;
 
         // Agents
         const agents = viewport.addChild(new PIXI.Container());
@@ -332,12 +484,13 @@ const PixiApp = forwardRef(({
             }
 
             moveAndRotateSprites(agents.children as PIXI.Container[], timestepRef.current);
-            updatePaths(agents.children as PIXI.Container[], timestepRef.current);
+            updatePathsMapd(agents.children as PIXI.Container[], timestepRef.current);
             updateGoalVectors(agents.children as PIXI.Container[]);
+            updateTaskPanel(timestepRef.current);
         }
         app.ticker.add(animate);
         tickerCallbackRef.current = animate;
-    }, [app, viewport, solution, moveAndRotateSprites, updatePaths, updateGoalVectors]);
+    }, [app, viewport, solution, moveAndRotateSprites, updatePathsMapd, updateGoalVectors, updateTaskPanel]);
 
     // Initialize the app and viewport when the canvas is ready
     useEffect(() => {
@@ -414,7 +567,7 @@ const PixiApp = forwardRef(({
                     cellGraphic.fill({color: GRID_COLOR});
                 }
                 const idText = cellContainer.addChild(new PIXI.Text({
-                    text: `${x + y * graph.width}`,
+                    text: `${x},${y}`,
                     style: {
                         fontFamily: 'Arial',
                         fontSize: cellGraphic.width / 6,
@@ -488,6 +641,35 @@ const PixiApp = forwardRef(({
         if (goalMarkersRef.current) goalMarkersRef.current.visible = showGoals;
         if (goalVectorsRef.current) goalVectorsRef.current.visible = showGoalVectors;
     }, [tracePaths, showGoals, showGoalVectors]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || !viewport) return;
+
+        const { x: panelX, y: panelY, width: panelWidth, height: panelHeight } = panelBoundsRef.current;
+
+        const isInsidePanel = (event: PointerEvent | WheelEvent) => {
+            return (
+                event.offsetX >= panelX &&
+                event.offsetX <= panelX + panelWidth &&
+                event.offsetY >= panelY &&
+                event.offsetY <= panelY + panelHeight
+            );
+        };
+
+        const onWheel = (event: WheelEvent) => {
+            if (!isInsidePanel(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            taskPanelScrollOffsetRef.current = Math.max(0, taskPanelScrollOffsetRef.current + event.deltaY);
+        };
+
+        // Capture phase ensures this runs before pixi-viewport wheel handlers on the same canvas.
+        canvas.addEventListener('wheel', onWheel, { passive: false, capture: true });
+        return () => {
+            canvas.removeEventListener('wheel', onWheel, { capture: true });
+        };
+    }, [viewport]);
 
     return <canvas ref={canvasRef} />
 });

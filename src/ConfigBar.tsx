@@ -1,5 +1,5 @@
 import { Graph } from './Graph';
-import { parseSolution, Solution } from './Solution';
+import { parseSolution, Solution, SolutionTasks } from './Solution';
 import { Divider, Stack, Box, IconButton } from '@mui/material';
 import React, { useEffect } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
@@ -13,6 +13,7 @@ interface ConfigBarProps {
   graph: Graph | null;
   onGraphChange: (graph: Graph | null) => void;
   onSolutionChange: (solution: Solution | null) => void;
+  onSolutionTasksChange: (solutionTasks: SolutionTasks | null) => void;
   onRestart: () => void;
   stepSize: number;
   onStepSizeChange: (speed: number) => void;
@@ -38,6 +39,7 @@ function ConfigBar({
   graph,
   onGraphChange,
   onSolutionChange,
+  onSolutionTasksChange,
   onRestart,
   stepSize,
   onStepSizeChange,
@@ -104,12 +106,14 @@ function ConfigBar({
   useEffect(() => {
     if (solutionFile === null) {
       onSolutionChange(null);
-      return
+      onSolutionTasksChange(null);
+      return;
     }
     solutionFile.text().then((text) => {
       try {
         if (graph === null) throw new Error("Map must be loaded before solution");
-        const soln = parseSolution(text);
+        const [soln, solTasks] = parseSolution(text);
+
         soln.forEach((config) => {
           config.forEach((pose) => {
             if (pose.position.x > graph.width || pose.position.y > graph.height) {
@@ -117,14 +121,30 @@ function ConfigBar({
             }
           });
         });
+
+        solTasks.forEach((configTasks) => {
+          configTasks.forEach((task) => {
+            if (
+              task.pickup.x > graph.width ||
+              task.pickup.y > graph.height ||
+              task.dropoff.x > graph.width ||
+              task.dropoff.y > graph.height
+            ) {
+              throw new Error(`Invalid solution: task ${task.pickup} -> ${task.dropoff} is out of bounds`);
+            }
+          });
+        });
+
         onSolutionChange(soln);
+        onSolutionTasksChange(solTasks);
         setSolutionError(null);
       } catch (e) {
         setSolutionFile(null);
+        onSolutionTasksChange(null);
         setSolutionError(e instanceof Error ? e.message : "An unexpected error occurred");
       }
     });
-  }, [graph, solutionFile, onSolutionChange]);
+  }, [graph, solutionFile, onSolutionChange, onSolutionTasksChange]);
 
   const handleMapChange = (newValue: File | null) => {
     setMapFile(newValue);
