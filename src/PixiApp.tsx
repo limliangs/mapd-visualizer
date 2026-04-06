@@ -262,6 +262,9 @@ const PixiApp = forwardRef(({
                         pathStartTimestep = t;
                         break;
                     }
+                    else if (t === 0 && taskAtT.status === `${index}`) {
+                        pathStartTimestep = -1;
+                    }
                 }
             }
 
