@@ -78,7 +78,7 @@ export function parseSolution(text: string): [Solution, SolutionTasks] {
             if (x < 0) throw new Error(`Invalid solution: position ${x} is negative`);
             const y = Number(m[3]);
             if (y < 0) throw new Error(`Invalid solution: position ${y} is negative`);
-            const carrying = m[4] === 'C' || m[4] === 'D';
+            const carrying = m[4] === 'C';
             const o = orientationFromString(m[5]);
             const pose = new Pose(new Coordinate(x, y), o, carrying);
             config.push(pose);

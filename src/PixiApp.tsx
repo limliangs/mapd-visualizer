@@ -246,46 +246,51 @@ const PixiApp = forwardRef(({
             const full_segments = agentPathsRef.current.full.children[index] as PIXI.Container;
             const partial_segments = agentPathsRef.current.partial.children[index] as PIXI.Container;
 
-            // full_segments.removeChildren();
-            // partial_segments.removeChildren();
+            full_segments.removeChildren();
+            partial_segments.removeChildren();
 
             const tasksAtNow = solutionTasks[Math.min(currentTimestep, solutionTasks.length - 1)] ?? [];
             const activeTask = tasksAtNow.find((task) => task.status === `${index}`);
-            const isCarrying = solution[currentTimestep][index].carrying;
-            const isActive = isCarrying;
-
-            if (!isActive) return;
-
-            const pickup = activeTask?.pickup;
-            const dropoff = activeTask?.dropoff;
-
-            // If task assignment is missing this frame, fall back to current position.
-            if (!pickup) return;
-
-            // Start the trail at the most recent time the agent was at this pickup location.
+            
+            // Start the trail at the most recent time the task status is not 'U'.
             let pathStartTimestep = Infinity;
-            for (let t = currentTimestep; t >= 0; t--) {
-                const pos = solution[t][index].position;
-                if (pos.x === pickup.x && pos.y === pickup.y) {
-                    pathStartTimestep = t;
-                    break;
+            if (activeTask) {
+                for (let t = currentTimestep; t >= 0; t--) {
+                    const tasksAtT = solutionTasks[Math.min(t, solutionTasks.length - 1)] ?? [];
+                    const taskAtT = tasksAtT.find((task) => task.status === `${index}`);
+                    if (!taskAtT || taskAtT.status === 'U') {
+                        pathStartTimestep = t;
+                        break;
+                    }
                 }
             }
 
             // Full segments
-            for (let segIndex = pathStartTimestep; segIndex < currentTimestep; segIndex++) {
+            for (let segIndex = 0; segIndex < currentTimestep; segIndex++) {
                 
-                if (activeTask) {
+                if (solution[segIndex][index].carrying) {
                     const segment = full_segments.addChild(new PIXI.Graphics());
                     segment.moveTo(
-                        scalePosition(solution[segIndex][index].position.x),
-                        scalePosition(solution[segIndex][index].position.y)
+                    scalePosition(solution[segIndex][index].position.x),
+                    scalePosition(solution[segIndex][index].position.y)
                     );
-                    segment.lineTo(
+                    
+                    if (segIndex > pathStartTimestep){
+                        segment.lineTo(
                         scalePosition(solution[segIndex + 1][index].position.x),
                         scalePosition(solution[segIndex + 1][index].position.y)
-                    );
-                    segment.stroke(agentLineStyle);
+                        );
+                        segment.stroke(agentLineStyle);
+                    } else {
+                        segment.lineTo(
+                        scalePosition(solution[segIndex + 1][index].position.x),
+                        scalePosition(solution[segIndex + 1][index].position.y)
+                        );
+                        segment.stroke({
+                            ...agentLineStyle,
+                            alpha: 0.25
+                        });
+                    }
                 }
             }
 
@@ -296,14 +301,16 @@ const PixiApp = forwardRef(({
                     scalePosition(solution[currentTimestep][index].position.x),
                     scalePosition(solution[currentTimestep][index].position.y)
                 );
-                const interpolatedPosition = {
-                    x: solution[currentTimestep][index].position.x +
-                        (solution[currentTimestep + 1][index].position.x - solution[currentTimestep][index].position.x) * interpolationProgress,
-                    y: solution[currentTimestep][index].position.y +
-                        (solution[currentTimestep + 1][index].position.y - solution[currentTimestep][index].position.y) * interpolationProgress,
+                if (solution[currentTimestep][index].carrying) {
+                    const interpolatedPosition = {
+                        x: solution[currentTimestep][index].position.x +
+                            (solution[currentTimestep + 1][index].position.x - solution[currentTimestep][index].position.x) * interpolationProgress,
+                        y: solution[currentTimestep][index].position.y +
+                            (solution[currentTimestep + 1][index].position.y - solution[currentTimestep][index].position.y) * interpolationProgress,
+                    }
+                    segment.lineTo(scalePosition(interpolatedPosition.x), scalePosition(interpolatedPosition.y));
+                    segment.stroke(agentLineStyle);
                 }
-                segment.lineTo(scalePosition(interpolatedPosition.x), scalePosition(interpolatedPosition.y));
-                segment.stroke(agentLineStyle);
             }
         });
     }, [solution, solutionTasks]);
