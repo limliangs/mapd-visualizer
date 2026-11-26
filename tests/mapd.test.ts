@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { Graph, Coordinate } from '../src/Graph';
+import { parseSolution } from '../src/Solution';
+import { parseTasks, currentTask } from '../src/Tasks';
+const read = (name: string) => readFileSync(`public/${name}`, 'utf8');
+const graph = new Graph(read('mapd.emap'));
+const paths = parseSolution(read('demo_mapd.txt'));
+const tasks = parseTasks(read('tasks_mapd.txt'), graph, paths[0].length);
+assert.equal(graph.width, 16);
+assert.equal(graph.height, 8);
+assert.deepEqual(graph.regionIds, ['0', '1']);
+assert.equal(graph.obstacles.size, 0);
+assert.equal(graph.ports.size, 4);
+for (const [x, y, kind] of [[7,0,'inlet'], [8,0,'outlet'], [7,7,'outlet'], [8,7,'inlet']] as const)
+    assert.equal(graph.ports.get(new Coordinate(x,y).toString())?.kind, kind);
+paths.flat().forEach(pose => graph.validatePosition(pose.position));
+assert.equal(paths.length, 11);
+assert.equal(currentTask(tasks[0], 6.99)?.position.toString(), '(3, 5)');
+assert.equal(currentTask(tasks[0], 7)?.position.toString(), '(9, 2)');
+assert.equal(currentTask(tasks[2], 7)?.position.toString(), '(8, 4)');
+assert.equal(currentTask(tasks[1], 8)?.position.toString(), '(1, 0)');
+assert.equal(currentTask(tasks[1], 9)?.position.toString(), '(6, 0)');
+assert.equal(currentTask(tasks[0], 2)?.position.toString(), '(3, 5)');
+assert.equal(currentTask(tasks[0], 100)?.position.toString(), '(9, 2)');
+assert.equal(currentTask([{position: new Coordinate(0,0), completedAt: 0}], 0), undefined);
+assert.equal(currentTask([], 0), undefined);
+assert.throws(() => graph.validatePosition(new Coordinate(16,0)), /bounds/);
+assert.throws(() => parseTasks(read('tasks_mapd.txt'), graph, 4), /matching/);
+assert.throws(() => parseTasks(read('tasks_mapd.txt').replace('(9,2),-1','(16,2),-1'), graph, 3), /bounds/);
+assert.throws(() => parseTasks(read('tasks_mapd.txt').replace('(12,7),-1','(12,7),8'), graph, 3), /ordered/);
+assert.throws(() => parseTasks(read('tasks_mapd.txt').replace('tasks: 3','tasks: 8'), graph, 3), /total|Total/);
+assert.throws(() => parseSolution('0:(0,0),\n1:(1,1),(2,2),'), /count/);
+assert.throws(() => parseSolution('0:(0,0),\n2:(1,1),'), /consecutive/);
+assert.throws(() => parseSolution('0:(0,0),garbage'), /Invalid/);
+assert.throws(() => new Graph(read('mapd.emap').replace('<<','.<')), /peer/);
+assert.throws(() => new Graph(read('mapd.emap').replace('width 16','width 15')), /dimensions/);
+assert.equal(new Graph(read('mapd.emap').replaceAll('\n','\r\n')).ports.size, 4);
+for (const demo of ['2x2', 'random-32-32-20']) {
+    const map = new Graph(read(`${demo}.map`));
+    const solution = parseSolution(read(`demo_${demo}.txt`));
+    solution.flat().forEach(pose => map.validatePosition(pose.position));
+    assert.equal(map.regions.size, 0);
+}
+console.log('MAPD regressions passed: supplied files, goal boundaries/rewind, port direction, validation, legacy demos.');
+
+const vertical = new Graph('type octile\nheight 2\nwidth 2\nmap\nv^\nv^\nregions\n00\n11');
+assert.equal(vertical.ports.get('(0, 0)')?.kind, 'outlet');
+assert.equal(vertical.ports.get('(0, 1)')?.kind, 'inlet');
+assert.equal(vertical.ports.get('(1, 0)')?.kind, 'inlet');
+assert.equal(vertical.ports.get('(1, 1)')?.kind, 'outlet');

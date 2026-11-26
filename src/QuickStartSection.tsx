@@ -8,6 +8,7 @@ function QuickStartSection({ onLoadDemo }: QuickStartSectionProps) {
   return (
     <Stack spacing={1}>
       <Box sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1 }}>Quick Start</Box>
+      <Button variant="contained" onClick={() => onLoadDemo("mapd")}>MAPD · your 8 × 16 example</Button>
       <Stack direction="row" spacing={1}>
         <Button
           variant="outlined"

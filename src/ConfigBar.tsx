@@ -77,17 +77,16 @@ function ConfigBar({
     }
   }
 
-  const handleLoadDemo = (mapName: string) => {
-    fetch(`${import.meta.env.BASE_URL}/${mapName}.map`)
-      .then((response) => response.text())
-      .then((text) => {
-        handleMapChange(new File([text], `${mapName}.map`));
-        return fetch(`${import.meta.env.BASE_URL}/demo_${mapName}.txt`);
-      })
-      .then((response) => response.text())
-      .then((text) => {
-        handleSolutionChange(new File([text], `demo_${mapName}.txt`));
-      });
+  const handleLoadDemo = async (mapName: string) => {
+    try {
+      const names = mapName === 'mapd' ? ['mapd.emap', 'demo_mapd.txt', 'tasks_mapd.txt'] : [`${mapName}.map`, `demo_${mapName}.txt`];
+      const files = await Promise.all(names.map(async name => {
+        const response = await fetch(`${import.meta.env.BASE_URL}${name}`);
+        if (!response.ok) throw new Error(`Could not load ${name}`);
+        return new File([await response.text()], name);
+      }));
+      setMapFile(files[0]); setSolutionFile(files[1]); setTasksFile(files[2] ?? null);
+    } catch (error) { setMapError(String(error)); }
   };
 
   useEffect(() => {
