@@ -32,12 +32,14 @@ function App() {
 
   const onSkipBackward = () => {
     if (pixiAppRef.current?.skipBackward) {
+      setPlayAnimation(false);
       pixiAppRef.current.skipBackward();
     }
   }
 
   const onSkipForward = () => {
     if (pixiAppRef.current?.skipForward) {
+      setPlayAnimation(false);
       pixiAppRef.current.skipForward();
     }
   }

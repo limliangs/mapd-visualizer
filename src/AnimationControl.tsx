@@ -71,7 +71,9 @@ function AnimationControl({
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+            const target = event.target as HTMLElement;
+            if (target.closest('input, textarea, select, [contenteditable="true"]') || event.ctrlKey || event.altKey || event.metaKey) return;
+            if (Object.values(KeyMap).includes(event.key as KeyMap)) {
                 event.preventDefault();
             }
 

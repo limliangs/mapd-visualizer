@@ -91,11 +91,11 @@ const PixiApp = forwardRef(({
 
     useImperativeHandle(ref, () => ({
         skipBackward: () => {
-            timestepRef.current = Math.max(0, timestepRef.current - stepSizeRef.current);
+            timestepRef.current = Math.max(0, Math.ceil(timestepRef.current) - 1);
         },
         skipForward: () => {
             if (solution) {
-                timestepRef.current = Math.min(timestepRef.current + stepSizeRef.current, solution.length - 1);
+                timestepRef.current = Math.min(Math.floor(timestepRef.current) + 1, solution.length - 1);
             }
         },
         restart: () => {
@@ -321,19 +321,16 @@ const PixiApp = forwardRef(({
         });
 
         const animate = () => {
-            if(timestepTextRef.current) {
-                timestepTextRef.current.text = `${timestepRef.current.toFixed(1)} / ${(solution.length - 1).toFixed(1)}`;
-            }
-
             if (playAnimationRef.current === true) {
                 if (timestepRef.current < solution.length - 1) {
                     const approximateFramerate = 60;
-                    timestepRef.current += stepSizeRef.current / approximateFramerate;
+                    timestepRef.current = Math.min(solution.length - 1, timestepRef.current + stepSizeRef.current / approximateFramerate);
                 } else if (loopAnimationRef.current) {
                     resetTimestep();
                 }
             }
 
+            if (timestepTextRef.current) timestepTextRef.current.text = `${timestepRef.current.toFixed(1)} / ${(solution.length - 1).toFixed(1)}`;
             moveAndRotateSprites(agents.children as PIXI.Container[], timestepRef.current);
             updatePaths(agents.children as PIXI.Container[], timestepRef.current);
             updateGoalVectors(agents.children as PIXI.Container[]);
