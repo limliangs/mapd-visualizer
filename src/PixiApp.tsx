@@ -1,3 +1,4 @@
+import { initializeRenderer } from './rendererLifecycle';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
@@ -48,7 +49,8 @@ const PixiApp = forwardRef(({
     // the variables are updated outside of the callbacks
     const [app, setApp] = useState<PIXI.Application | null>(null);
     const [viewport, setViewport] = useState<Viewport | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const hostRef = useRef<HTMLDivElement>(null);
+    const [rendererError, setRendererError] = useState<string | null>(null);
     const [grid, setGrid] = useState<PIXI.Container | null>(null);
     const playAnimationRef = useRef(playAnimation);
     const timestepRef = useRef(0.0);
@@ -339,63 +341,34 @@ const PixiApp = forwardRef(({
         tickerCallbackRef.current = animate;
     }, [app, viewport, solution, moveAndRotateSprites, updatePaths, updateGoalVectors]);
 
-    // Initialize the app and viewport when the canvas is ready
+    // Each async initialization owns a separate canvas/context. A stale mount can
+    // never destroy the context used by the current mount (React StrictMode/HMR).
     useEffect(() => {
-        if (app === null) {
-            const canvas = canvasRef.current;
-            if (canvas) {
-                const pixiApp = new PIXI.Application();
-                pixiApp.init({
-                    width: width,
-                    height: height,
-                    canvas: canvas,
-                    background: BACKGROUND_COLOR,
-                    antialias: true,  // for smooooooth circles
-                }).then(() => {
-                    setApp(pixiApp);
-                });
-            }
-        } else {
-            app.canvas.style.position = "absolute";
-            if (viewport === null) {
-                const viewport = new Viewport({
-                    screenWidth: width,
-                    screenHeight: height,
-                    worldWidth: width*2,
-                    worldHeight: height*2,
-                    events: app.renderer.events,
-                });
-                viewport.drag().pinch().wheel();
-                setViewport(viewport);
-            } else {
-                if (app.stage.children.length === 0) {
-                    app.stage.addChild(viewport);
-                    hudRef.current = app.stage.addChild(new PIXI.Container());
-                    const textStyle = new PIXI.TextStyle({
-                        fontSize: 24 * FONT_SUPER_RESOLUTION_SCALE,
-                        fill: TEXT_COLOR,
-                        fontFamily: "Arial",
-                        fontWeight: "bold",
-                        stroke: {
-                            color: BACKGROUND_COLOR,
-                            width: 4
-                        },
-                    });
-                    timestepTextRef.current = hudRef.current.addChild(
-                        new PIXI.Text({
-                            x: width / 100,
-                            y: height / 100,
-                            anchor: new PIXI.Point(0, 0),
-                            style: textStyle,
-                            scale: {x: 1 / FONT_SUPER_RESOLUTION_SCALE, y: 1 / FONT_SUPER_RESOLUTION_SCALE}
-                        })
-                    );
-                }
-                app.start();
-            }
-        }
-        return () => {app?.stop()};
-    }, [app, viewport, height, width]);
+        const host = hostRef.current;
+        if (!host) return;
+        setRendererError(null);
+        return initializeRenderer(async () => {
+            const instance = new PIXI.Application();
+            await instance.init({ width: 1, height: 1, background: BACKGROUND_COLOR, antialias: true });
+            return instance;
+        }, instance => {
+            instance.canvas.style.display = 'block';
+            host.appendChild(instance.canvas);
+            const view = new Viewport({ screenWidth: 1, screenHeight: 1, worldWidth: 1, worldHeight: 1, events: instance.renderer.events });
+            view.drag().pinch().wheel().decelerate();
+            instance.stage.addChild(view);
+            const hud = instance.stage.addChild(new PIXI.Container());
+            hudRef.current = hud;
+            timestepTextRef.current = hud.addChild(new PIXI.Text({
+                style: { fontFamily: 'Arial', fontSize: 22, fontWeight: 'bold', fill: TEXT_COLOR, stroke: { color: BACKGROUND_COLOR, width: 4 } },
+            }));
+            setApp(instance); setViewport(view);
+        }, instance => {
+            instance.destroy({ removeView: true }, { children: true });
+        }, error => {
+            setRendererError(`Could not start the map renderer: ${error instanceof Error ? error.message : String(error)}`);
+        });
+    }, []);
 
     const drawGrid = useCallback(() => {
         if (viewport === null || graph === null) return null;
@@ -436,8 +409,8 @@ const PixiApp = forwardRef(({
     // Resize the viewport when the width or height changes
     useEffect(() => {
         if (app !== null && viewport !== null) {
-            app.renderer.resize(width, height);
-            viewport.resize(width, height);
+            app.renderer.resize(Math.max(1, width), Math.max(1, height));
+            viewport.resize(Math.max(1, width), Math.max(1, height));
             if (hudRef.current) {
                 hudRef.current.children[0].x = width / 100;
                 hudRef.current.children[0].y = height / 100;
@@ -489,7 +462,9 @@ const PixiApp = forwardRef(({
         if (goalVectorsRef.current) goalVectorsRef.current.visible = showGoalVectors;
     }, [tracePaths, showGoals, showGoalVectors]);
 
-    return <canvas ref={canvasRef} />
+    return <div ref={hostRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+        {rendererError && <div role="alert" style={{ padding: 24, color: '#b91c1c', background: '#fff' }}>{rendererError}</div>}
+    </div>
 });
 
 export default PixiApp;

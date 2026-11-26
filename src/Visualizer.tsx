@@ -40,20 +40,20 @@ function Visualizer({
   useEffect(() => {
     const handleResize = () => {
       if (boxRef.current && canvasRef.current) {
-        setViewportSize({
-          width: boxRef.current.clientWidth,
-          height: window.innerHeight - canvasRef.current.getBoundingClientRect().top
-        });
+        const width = Math.max(1, boxRef.current.clientWidth);
+        const height = Math.max(1, boxRef.current.clientHeight);
+        setViewportSize(previous => previous?.width === width && previous.height === height ? previous : { width, height });
       }
     };
     handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const observer = new ResizeObserver(handleResize);
+    if (boxRef.current) observer.observe(boxRef.current);
+    return () => observer.disconnect();
   }, []);
 
   return (
     <Box width="100%" height="100%" ref={boxRef}>
-      <div ref={canvasRef}>
+      <div ref={canvasRef} style={{ height: '100%', overflow: 'hidden' }}>
       {viewportSize !== null &&
         <PixiApp
           ref={pixiAppRef}
