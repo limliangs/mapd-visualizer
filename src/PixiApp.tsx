@@ -78,7 +78,7 @@ const PixiApp = forwardRef(({
     }
 
     function takeScreenshot() {
-        if (app && viewport && grid) {
+        if (app && viewport && grid && !grid.destroyed) {
             app.renderer.extract.base64(viewport).then((data) => {
                 const link = document.createElement('a');
                 link.download = 'screenshot.png';
@@ -111,7 +111,7 @@ const PixiApp = forwardRef(({
 
     // Fit the viewport to the grid
     const fit = useCallback(() => {
-        if (viewport === null || grid === null) return;
+        if (viewport === null || grid === null || grid.destroyed) return;
         viewport.fitWorld();
         viewport.moveCenter(
             grid.position.x + grid.width / 2,
@@ -182,9 +182,10 @@ const PixiApp = forwardRef(({
 
             while(full_segments.children.length > currentTimestep) {
                 if (full_segments.children.length === 0) break;
-                full_segments.removeChildAt(full_segments.children.length - 1);
+                (full_segments.removeChildAt(full_segments.children.length - 1) as PIXI.Container).destroy();
             }
-            partial_segments.removeChildren();
+            const partial = partial_segments.children[0] as PIXI.Graphics;
+            partial.clear();
 
             // Full segments
             while (full_segments.children.length < currentTimestep) {
@@ -203,7 +204,7 @@ const PixiApp = forwardRef(({
 
             // Partial segment
             if (interpolationProgress > 0 && currentTimestep < solution.length - 1) {
-                const segment = partial_segments.addChild(new PIXI.Graphics());
+                const segment = partial;
             //     const segment = path.children.length === currentTimestep ? path.addChild(new PIXI.Graphics()) : path.children[currentTimestep] as PIXI.Graphics;
                 segment.moveTo(
                     scalePosition(solution[currentTimestep][index].position.x),
@@ -245,14 +246,14 @@ const PixiApp = forwardRef(({
         if (app === null || viewport === null) return;
         if (tickerCallbackRef.current) {
             app.ticker.remove(tickerCallbackRef.current);
-            if (agentsRef.current) viewport.removeChild(agentsRef.current);
+            if (agentsRef.current) { agentsRef.current.destroy({ children: true }); agentsRef.current = null; }
             if (agentPathsRef.current) {
-                agentPathsRef.current.full.removeChildren();
-                agentPathsRef.current.partial.removeChildren();
+                agentPathsRef.current.full.removeChildren().forEach(child => child.destroy({ children: true }));
+                agentPathsRef.current.partial.removeChildren().forEach(child => child.destroy({ children: true }));
             }
             if (timestepTextRef.current) timestepTextRef.current.text = "";
-            if (goalMarkersRef.current) goalMarkersRef.current.removeChildren();
-            if (goalVectorsRef.current) goalVectorsRef.current.removeChildren();
+            if (goalMarkersRef.current) goalMarkersRef.current.removeChildren().forEach(child => child.destroy({ children: true }));
+            if (goalVectorsRef.current) goalVectorsRef.current.removeChildren().forEach(child => child.destroy({ children: true }));
         }
         if (solution === null) return;
         resetTimestep();
@@ -277,7 +278,7 @@ const PixiApp = forwardRef(({
         viewport.addChild(agentPathsRef.current.partial);
         solution[0].forEach(() => {
             agentPathsRef.current.full.addChild(new PIXI.Container());
-            agentPathsRef.current.partial.addChild(new PIXI.Container());
+            agentPathsRef.current.partial.addChild(new PIXI.Container()).addChild(new PIXI.Graphics());
         });
 
         // Goal vectors
@@ -422,8 +423,8 @@ const PixiApp = forwardRef(({
     // Draw the grid when the graph changes
     useEffect(() => {
         if (app && viewport) {
-            if (grid) viewport.removeChild(grid);
-            if (graph) setGrid(drawGrid());
+            if (grid) grid.destroy({ children: true });
+            setGrid(graph ? drawGrid() : null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [app, graph, viewport]); // Excluding 'grid' to prevent infinite loop
@@ -432,8 +433,8 @@ const PixiApp = forwardRef(({
     useEffect(() => {
         fit();
         animateSolution();
-        setCanScreenshot(!!solution);
-    }, [grid, solution, animateSolution, fit, setCanScreenshot]);
+        setCanScreenshot(!!graph && !!app);
+    }, [grid, graph, app, solution, animateSolution, fit, setCanScreenshot]);
 
     // Update the playAnimationRef when the playAnimation changes
     useEffect(() => {
@@ -444,7 +445,7 @@ const PixiApp = forwardRef(({
     }, [playAnimation, stepSize, loopAnimation, showAgentId]);
 
     useEffect(() => {
-        if (!grid) return;
+        if (!grid || grid.destroyed) return;
         grid.children.forEach((cellContainer) => {
             const idText = cellContainer.children[1];
             if (idText) {
