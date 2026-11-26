@@ -381,9 +381,11 @@ const PixiApp = forwardRef(({
                 const cellGraphic = cellContainer.addChild(new PIXI.Graphics());
                 const cellX = x * GRID_UNIT_TO_PX;
                 const cellY = y * GRID_UNIT_TO_PX;
-                const strokeWidth = GRID_UNIT_TO_PX / 10;
+                const strokeWidth = 1;
                 cellGraphic.rect(cellX, cellY, GRID_UNIT_TO_PX, GRID_UNIT_TO_PX)
-                .stroke({color: GRID_COLOR, width: strokeWidth});
+                .fill(graph.obstacles.has(new Coordinate(x, y).toString()) ? GRID_COLOR :
+                    graph.regions.has(new Coordinate(x, y).toString()) ? graph.regionColor(graph.regions.get(new Coordinate(x, y).toString())!) : BACKGROUND_COLOR)
+                .stroke({color: 0x94a3b8, width: strokeWidth});
                 if (graph.obstacles.has(new Coordinate(x, y).toString())) {
                     cellGraphic.fill({color: GRID_COLOR});
                 }
@@ -399,13 +401,40 @@ const PixiApp = forwardRef(({
                 idText.scale.set(1 / FONT_SUPER_RESOLUTION_SCALE, 1 / FONT_SUPER_RESOLUTION_SCALE);
                 idText.x = cellX + strokeWidth;
                 idText.y = cellY + strokeWidth;
+                const key = new Coordinate(x, y).toString();
+                const region = graph.regions.get(key);
+                if (region !== undefined) {
+                    const boundary = cellContainer.addChild(new PIXI.Graphics());
+                    for (const [dx, dy, x1, y1, x2, y2] of [
+                        [-1, 0, 0, 0, 0, 100], [1, 0, 100, 0, 100, 100],
+                        [0, -1, 0, 0, 100, 0], [0, 1, 0, 100, 100, 100],
+                    ]) {
+                        if (graph.regions.get(new Coordinate(x + dx, y + dy).toString()) !== region)
+                            boundary.moveTo(cellX + x1, cellY + y1).lineTo(cellX + x2, cellY + y2);
+                    }
+                    boundary.stroke({ color: 0x334155, width: 5 });
+                }
+                const port = graph.ports.get(key);
+                if (port) {
+                    const color = port.kind === 'inlet' ? 0x00695c : 0x9a3412;
+                    const arrow = { '>': '→', '<': '←', '^': '↑', 'v': '↓' }[port.arrow];
+                    cellContainer.addChild(new PIXI.Graphics()).roundRect(cellX + 6, cellY + 6, 88, 88, 8)
+                        .fill({ color: 0xffffff, alpha: 0.85 }).stroke({ color, width: 3 });
+                    cellContainer.addChild(new PIXI.Text({ text: `${arrow}\n${port.kind === 'inlet' ? 'IN' : 'OUT'}`,
+                        x: cellX + 50, y: cellY + 50, anchor: 0.5,
+                        style: { fontFamily: 'Arial', fontSize: 28, fontWeight: 'bold', align: 'center', fill: color, lineHeight: 34 } }));
+                    cellContainer.eventMode = 'static';
+                    cellContainer.on('pointerover', () => { app?.canvas.setAttribute('title', `Region ${port.region} ${port.kind} ${port.position} · peer region ${port.peerRegion}`); });
+                    cellContainer.on('pointerout', () => { app?.canvas.removeAttribute('title'); });
+                }
+
             }
         }
 
         viewport.worldHeight = grid.height * 1.2;
         viewport.worldWidth = grid.width * 1.2;
         return grid;
-    }, [viewport, graph]);
+    }, [app, viewport, graph]);
 
     // Resize the viewport when the width or height changes
     useEffect(() => {

@@ -39,7 +39,7 @@ function FilesSection({
           <MuiFileInput
             value={mapFile}
             onChange={onMapChange}
-            placeholder="Select map file"
+            placeholder="Select .emap or .map file"
             size="small"
             sx={{ flexGrow: 1 }}
             clearIconButtonProps={{
