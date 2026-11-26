@@ -4,6 +4,8 @@ import ConfigBar from './ConfigBar';
 import AnimationControl from './AnimationControl';
 import Visualizer from './Visualizer';
 import { Graph } from './Graph';
+import { Tasks } from './Tasks';
+import TaskPanel from './TaskPanel';
 import { Solution } from './Solution';
 import React, { useCallback } from 'react';
 import { StrictMode, useRef } from 'react';
@@ -17,12 +19,14 @@ function App() {
     takeScreenshot?: () => void;
   }>(null);
 
+  const [tasks, setTasks] = React.useState<Tasks | null>(null);
+  const [timestep, setTimestep] = React.useState(0);
   const [graph, setGraph] = React.useState<Graph | null>(null);
   const [solution, setSolution] = React.useState<Solution | null>(null);
   const [playAnimation, setPlayAnimation] = React.useState<boolean>(true);
   const [stepSize, setStepSize] = React.useState<number>(1.0);
   const [loopAnimation, setLoopAnimation] = React.useState<boolean>(true);
-  const [showAgentId, setShowAgentId] = React.useState<boolean>(false);
+  const [showAgentId, setShowAgentId] = React.useState<boolean>(true);
   const [tracePaths, setTracePaths] = React.useState<boolean>(true);
   const [canScreenshot, setCanScreenshot] = React.useState<boolean>(true);
   const [showCellId, setShowCellId] = React.useState<boolean>(false);
@@ -65,11 +69,14 @@ function App() {
   return (
     <StrictMode>
     <Box sx={{ flexGrow: 1, position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+      <TaskPanel graph={graph} tasks={tasks} timestep={timestep} />
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', mb: '80px' }}>
         <Visualizer
           pixiAppRef = {pixiAppRef}
           graph={graph}
           solution={solution}
+          tasks={tasks}
+          onTimestepChange={setTimestep}
           playAnimation={playAnimation}
           stepSize={stepSize}
           loopAnimation={loopAnimation}
@@ -122,6 +129,7 @@ function App() {
       >
         <ConfigBar
           graph={graph}
+          onTasksChange={setTasks}
           onGraphChange={useCallback((graph: Graph | null) => setGraph(graph), [])}
           onSolutionChange={useCallback((solution: Solution | null) => setSolution(solution), [])}
           onRestart={onRestart}

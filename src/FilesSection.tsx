@@ -4,6 +4,9 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 
 interface FilesSectionProps {
+  tasksFile: File | null;
+  onTasksChange: (file: File | null) => void;
+  tasksError: string | null;
   mapFile: File | null;
   onMapChange: (file: File | null) => void;
   mapError: string | null;
@@ -13,6 +16,7 @@ interface FilesSectionProps {
 }
 
 function FilesSection({
+  tasksFile, onTasksChange, tasksError,
   mapFile,
   onMapChange,
   mapError,
@@ -91,6 +95,14 @@ function FilesSection({
           )}
         </Stack>
         {solutionError && <Box sx={{color: 'error.main', fontSize: '0.75rem'}}>{solutionError}</Box>}
+      </Stack>
+      <Stack spacing={1}>
+        <Box sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'text.secondary' }}>Tasks (optional)</Box>
+        <MuiFileInput value={tasksFile} onChange={onTasksChange} disabled={!solutionFile}
+          placeholder="Select tasks .txt file" size="small"
+          clearIconButtonProps={{ title: 'Clear tasks', children: <ClearIcon fontSize="small" /> }} />
+        {tasksError && <Box role="alert" sx={{ color: 'error.main', fontSize: '0.75rem' }}>{tasksError}</Box>}
+        <Box sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>With tasks: current queued goal. Without tasks: final path position.</Box>
       </Stack>
     </Stack>
   );

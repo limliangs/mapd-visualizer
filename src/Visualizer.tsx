@@ -1,3 +1,4 @@
+import { Tasks } from './Tasks';
 import Box from '@mui/material/Box';
 import { Solution } from './Solution';
 import { Graph } from './Graph';
@@ -7,6 +8,8 @@ import { useState, useRef, useEffect } from 'react';
 interface VisualizerProps {
   graph: Graph | null;
   solution: Solution | null;
+  tasks: Tasks | null;
+  onTimestepChange: (time: number) => void;
   playAnimation: boolean;
   pixiAppRef: React.MutableRefObject<{ skipBackward?: () => void; skipForward?: () => void; restart?: () => void; } | null>;
   stepSize: number;
@@ -22,6 +25,8 @@ interface VisualizerProps {
 function Visualizer({
   graph,
   solution,
+  tasks,
+  onTimestepChange,
   playAnimation,
   pixiAppRef,
   stepSize,
@@ -61,6 +66,8 @@ function Visualizer({
           height={viewportSize.height}
           graph={graph}
           solution={solution}
+          tasks={tasks}
+          onTimestepChange={onTimestepChange}
           playAnimation={playAnimation}
           stepSize={stepSize}
           loopAnimation={loopAnimation}

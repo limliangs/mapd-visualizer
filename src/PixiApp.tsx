@@ -1,4 +1,5 @@
 import { initializeRenderer } from './rendererLifecycle';
+import { Tasks, currentTask } from './Tasks';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
@@ -15,6 +16,8 @@ interface PixiAppProps {
     height: number;
     graph: Graph | null;
     solution: Solution | null;
+    tasks: Tasks | null;
+    onTimestepChange: (time: number) => void;
     playAnimation: boolean;
     stepSize: number;
     loopAnimation: boolean;
@@ -31,6 +34,8 @@ const PixiApp = forwardRef(({
     height,
     graph,
     solution,
+    tasks,
+    onTimestepChange,
     playAnimation,
     stepSize,
     loopAnimation,
@@ -225,21 +230,17 @@ const PixiApp = forwardRef(({
     const updateGoalVectors = useCallback((agents: PIXI.Container[]) => {
         if (!solution) return;
         agents.forEach((agent, index) => {
-            const goal =  solution[solution.length - 1][index];
-            const goalVector = goalVectorsRef.current.children[index] as PIXI.Graphics;
-            goalVector.clear()
-                .moveTo(agent.x, agent.y)
-                .lineTo(
-                    scalePosition(goal.position.x),
-                    scalePosition(goal.position.y)
-                )
-                .stroke({
-                    color: AGENT_COLORS[index % AGENT_COLORS.length],
-                    width: Math.max(1, GRID_UNIT_TO_PX / 25),
-                    cap: "round" as const
-                });
+            const goal = tasks ? currentTask(tasks[index], Math.floor(timestepRef.current))?.position : solution[solution.length - 1][index].position;
+            const marker = goalMarkersRef.current.children[index];
+            const vector = goalVectorsRef.current.children[index] as PIXI.Graphics;
+            marker.visible = !!goal;
+            vector.clear();
+            if (!goal) return;
+            marker.position.set(scalePosition(goal.x), scalePosition(goal.y));
+            vector.moveTo(agent.x, agent.y).lineTo(scalePosition(goal.x), scalePosition(goal.y))
+                .stroke({ color: AGENT_COLORS[index % AGENT_COLORS.length], width: 3, alpha: 0.7 });
         });
-    }, [solution]);
+    }, [solution, tasks]);
 
     // Animate the solution
     const animateSolution = useCallback(() => {
@@ -263,14 +264,12 @@ const PixiApp = forwardRef(({
 
         // Goal markers
         const goalMarkers = viewport.addChild(goalMarkersRef.current);
-        solution[solution.length - 1].forEach((pose, agentId) => {
-            const marker = goalMarkers.addChild(new PIXI.Graphics());
-            const width = GRID_UNIT_TO_PX / 4;
-            marker.rect(
-                scalePosition(pose.position.x) - width / 2,
-                scalePosition(pose.position.y) - width / 2,
-                width, width)
-            .fill(AGENT_COLORS[agentId % AGENT_COLORS.length]);
+        solution[0].forEach((_pose, agentId) => {
+            const marker = goalMarkers.addChild(new PIXI.Container());
+            marker.addChild(new PIXI.Graphics()).rect(-38, -38, 76, 76)
+                .stroke({ color: AGENT_COLORS[agentId % AGENT_COLORS.length], width: 6 });
+            marker.addChild(new PIXI.Text({ text: `G${agentId}`, x: -33, y: -37,
+                style: { fontFamily: 'Arial', fontSize: 22, fontWeight: 'bold', fill: AGENT_COLORS[agentId % AGENT_COLORS.length] } }));
         });
 
         // Paths
@@ -331,13 +330,14 @@ const PixiApp = forwardRef(({
             }
 
             if (timestepTextRef.current) timestepTextRef.current.text = `${timestepRef.current.toFixed(1)} / ${(solution.length - 1).toFixed(1)}`;
+            onTimestepChange(Math.floor(timestepRef.current));
             moveAndRotateSprites(agents.children as PIXI.Container[], timestepRef.current);
             updatePaths(agents.children as PIXI.Container[], timestepRef.current);
             updateGoalVectors(agents.children as PIXI.Container[]);
         }
         app.ticker.add(animate);
         tickerCallbackRef.current = animate;
-    }, [app, viewport, solution, moveAndRotateSprites, updatePaths, updateGoalVectors]);
+    }, [app, viewport, solution, moveAndRotateSprites, updatePaths, updateGoalVectors, onTimestepChange]);
 
     // Each async initialization owns a separate canvas/context. A stale mount can
     // never destroy the context used by the current mount (React StrictMode/HMR).

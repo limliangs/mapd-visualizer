@@ -1,3 +1,4 @@
+import { Tasks, parseTasks } from './Tasks';
 import { Graph } from './Graph';
 import { parseSolution, Solution } from './Solution';
 import { Divider, Stack, Box, IconButton } from '@mui/material';
@@ -11,6 +12,7 @@ import DisplaySection from './DisplaySection';
 
 interface ConfigBarProps {
   graph: Graph | null;
+  onTasksChange: (tasks: Tasks | null) => void;
   onGraphChange: (graph: Graph | null) => void;
   onSolutionChange: (solution: Solution | null) => void;
   onRestart: () => void;
@@ -36,6 +38,7 @@ interface ConfigBarProps {
 
 function ConfigBar({
   graph,
+  onTasksChange,
   onGraphChange,
   onSolutionChange,
   onRestart,
@@ -59,6 +62,9 @@ function ConfigBar({
   onCloseDrawer,
 }: ConfigBarProps) {
   const repoName = "JustinShetty/mapf-visualizer";
+  const [parsedSolution, setParsedSolution] = React.useState<Solution | null>(null);
+  const [tasksFile, setTasksFile] = React.useState<File | null>(null);
+  const [tasksError, setTasksError] = React.useState<string | null>(null);
   const [mapFile, setMapFile] = React.useState<File | null>(null);
   const [mapError, setMapError] = React.useState<string | null>(null);
   const [solutionFile, setSolutionFile] = React.useState<File | null>(null);
@@ -96,25 +102,39 @@ function ConfigBar({
 
   useEffect(() => {
     let cancelled = false;
+    setParsedSolution(null);
     onSolutionChange(null);
     setSolutionError(null);
     if (graph && solutionFile) void solutionFile.text().then(text => {
       if (cancelled) return;
       const parsed = parseSolution(text);
       parsed.forEach(config => config.forEach(pose => graph.validatePosition(pose.position)));
+      setParsedSolution(parsed);
       onSolutionChange(parsed);
     }).catch(error => { if (!cancelled) setSolutionError(String(error)); });
     return () => { cancelled = true; };
   }, [graph, solutionFile, onSolutionChange]);
 
+  useEffect(() => {
+    let cancelled = false;
+    onTasksChange(null);
+    setTasksError(null);
+    if (graph && parsedSolution && tasksFile) void tasksFile.text().then(text => {
+      if (!cancelled) onTasksChange(parseTasks(text, graph, parsedSolution[0].length));
+    }).catch(error => { if (!cancelled) setTasksError(String(error)); });
+    return () => { cancelled = true; };
+  }, [graph, parsedSolution, tasksFile, onTasksChange]);
+
   const handleMapChange = (newValue: File | null) => {
     setMapFile(newValue);
     setSolutionFile(null);
+    setTasksFile(null);
     blurActiveElement();
   };
 
   const handleSolutionChange = (newValue: File | null) => {
     setSolutionFile(newValue);
+    setTasksFile(null);
     blurActiveElement();
   };
 
@@ -131,6 +151,9 @@ function ConfigBar({
       <Divider sx={{ opacity: 0.5 }} />
 
       <FilesSection
+        tasksFile={tasksFile}
+        onTasksChange={setTasksFile}
+        tasksError={tasksError}
         mapFile={mapFile}
         onMapChange={handleMapChange}
         mapError={mapError}
