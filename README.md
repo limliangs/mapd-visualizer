@@ -1,3 +1,53 @@
+# MAPD Visualizer
+
+Adapted from [JustinShetty/mapf-visualizer](https://github.com/JustinShetty/mapf-visualizer).
+
+## Run locally
+
+```sh
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite. Choose **MAPD · your 8 × 16 example** to load the supplied rbd-run8 map, paths, and tasks, or load your own files in order: map, paths, tasks. Files are read locally in the browser. Original MAPF demos and maps remain supported; tasks are optional.
+
+## MAPD inputs and display
+
+- `.emap`: an octile header and terrain grid followed by `regions` and an equally sized region grid. Each free cell has a single digit region ID (0–9), matching the partition script. Regions have colored backgrounds, dark boundaries, and a legend. Coordinates are `(x,y)` with the origin in the upper left.
+- Terrain arrows `<`, `>`, `^`, `v` are walkable ports. A pair of equal arrows straddles a region boundary: the arrow pointing toward its peer is **OUT**, and the receiving peer is **IN**. Hover a port for its region, coordinates, and peer region. `@`, `O`, `T`, `W` are obstacles; `.`, `G`, `S` are traversable.
+- Paths: one row per consecutive timestep beginning at zero, e.g. `0:(5,1),(6,4),(2,4),`. Pose order determines agent IDs. Orientation remains optional, but must be consistent across the file.
+- Tasks: the first line is the agent count, followed by one row per agent in the same ID order. Each entry is `(x,y),completion_time,;`. A trailing `Total completed tasks: N` summary is optional and validated when present.
+
+Example tasks:
+
+```text
+3
+(3,5),7,;(9,2),-1,;(12,7),-1,;(11,6),-1,;
+(1,0),9,;(6,0),-1,;(14,0),-1,;(6,3),-1,;
+(7,2),7,;(8,4),-1,;(6,1),-1,;(13,1),-1,;
+Total completed tasks: 3
+```
+
+A goal completed at timestep `t` is considered complete at `t`; the next queued goal becomes active immediately. `-1` means pending, so the first pending goal stays active for the rest of the recording. For this sample, agents 0 and 2 switch at timestep 7 and agent 1 at timestep 9. The goal panel, colored `G<agent ID>` markers, and optional goal vectors all use this rule, including during backward stepping, restart, and looping. Once an agent completes every listed task, its marker disappears. Without a tasks file, goal markers retain the original final-path-position behavior.
+
+The tasks format contains ordered goals and completion times, but no assignment times, pickup/delivery labels, or intermediate regional routing goals. The visualizer treats the ordered queue as available from timestep zero and displays its global goal; it cannot reconstruct information absent from the export.
+
+## Controls
+
+Space plays/pauses; left/right arrows pause and move one timestep. `r` restarts, `l` toggles looping, `f` fits the map, `a` toggles agent IDs, `c` cell IDs, `p` path traces, `g` goal markers, and `v` goal vectors. Drag to pan and scroll to zoom. Settings includes speed controls, display toggles, and screenshot export.
+
+## Validation
+
+```sh
+npm test
+npm run build
+npm run lint
+```
+
+Regression tests cover the supplied inputs, completion boundaries and rewind, port direction, malformed data, and original MAPF demos.
+
+## Upstream documentation
+
 # `JustinShetty/mapf-visualizer`
 
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
