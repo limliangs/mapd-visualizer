@@ -85,45 +85,26 @@ function ConfigBar({
   };
 
   useEffect(() => {
-    if (mapFile === null) {
-      onGraphChange(null);
-      return;
-    }
-    mapFile.text().then((text) => {
-      try {
-        onGraphChange(new Graph(text));
-        setMapError(null);
-      } catch (e) {
-        setMapFile(null);
-        onGraphChange(null);
-        setMapError(e instanceof Error ? e.message : "An unexpected error occurred");
-      }
-    });
+    let cancelled = false;
+    onGraphChange(null);
+    setMapError(null);
+    if (mapFile) void mapFile.text().then(text => {
+      if (!cancelled) onGraphChange(new Graph(text));
+    }).catch(error => { if (!cancelled) setMapError(String(error)); });
+    return () => { cancelled = true; };
   }, [mapFile, onGraphChange]);
 
   useEffect(() => {
-    if (solutionFile === null) {
-      onSolutionChange(null);
-      return
-    }
-    solutionFile.text().then((text) => {
-      try {
-        if (graph === null) throw new Error("Map must be loaded before solution");
-        const soln = parseSolution(text);
-        soln.forEach((config) => {
-          config.forEach((pose) => {
-            if (pose.position.x > graph.width || pose.position.y > graph.height) {
-              throw new Error(`Invalid solution: position ${pose.position} is out of bounds`);
-            }
-          });
-        });
-        onSolutionChange(soln);
-        setSolutionError(null);
-      } catch (e) {
-        setSolutionFile(null);
-        setSolutionError(e instanceof Error ? e.message : "An unexpected error occurred");
-      }
-    });
+    let cancelled = false;
+    onSolutionChange(null);
+    setSolutionError(null);
+    if (graph && solutionFile) void solutionFile.text().then(text => {
+      if (cancelled) return;
+      const parsed = parseSolution(text);
+      parsed.forEach(config => config.forEach(pose => graph.validatePosition(pose.position)));
+      onSolutionChange(parsed);
+    }).catch(error => { if (!cancelled) setSolutionError(String(error)); });
+    return () => { cancelled = true; };
   }, [graph, solutionFile, onSolutionChange]);
 
   const handleMapChange = (newValue: File | null) => {

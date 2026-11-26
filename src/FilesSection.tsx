@@ -64,7 +64,7 @@ function FilesSection({
       </Stack>
 
       <Stack spacing={1}>
-        <Box sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1 }}>Solution</Box>
+        <Box sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1 }}>Paths</Box>
         <Stack direction="row" spacing={1}>
           <MuiFileInput
             value={solutionFile}

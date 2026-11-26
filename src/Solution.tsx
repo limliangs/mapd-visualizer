@@ -42,26 +42,21 @@ export type Config = Pose[];
 export type Solution = Config[];
 
 export function parseSolution(text: string): Solution {
-    const lines = text.trim().split("\n");
     const solution: Solution = [];
-
-    for (const line of lines) {
+    let orientationAware: boolean | undefined;
+    for (const [timestep, line] of text.trim().split(/\r?\n/).entries()) {
+        const header = /^\s*(\d+)\s*:(.*)$/.exec(line);
+        if (!header || Number(header[1]) !== timestep) throw new Error('Path timesteps must be consecutive, starting at 0.');
         const config: Config = [];
-
-        const pos_re = /(\((\d+),(\d+),?([XY]{1}_[A-Z]{4,5})?\),)/g;
-        while (true) {
-            const m = pos_re.exec(line);
-            if (m === null) break;
-            if (m === null || m.length !== 5) throw new Error("Invalid solution");
-            const x = Number(m[2]);
-            if (x < 0) throw new Error(`Invalid solution: position ${x} is negative`);
-            const y = Number(m[3]);
-            if (y < 0) throw new Error(`Invalid solution: position ${y} is negative`);
-            const o = orientationFromString(m[4]);
-            const pose = new Pose(new Coordinate(x, y), o);
-            config.push(pose);
+        const pattern = /\(\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(X_MINUS|X_PLUS|Y_MINUS|Y_PLUS)\s*)?\)\s*,?/g;
+        for (const match of header[2].matchAll(pattern)) {
+            const aware = !!match[3];
+            orientationAware ??= aware;
+            if (aware !== orientationAware) throw new Error('All poses must consistently include or omit orientation.');
+            config.push(new Pose(new Coordinate(Number(match[1]), Number(match[2])), orientationFromString(match[3])));
         }
-        if (config.length === 0) throw new Error("Invalid solution");
+        if (!config.length || header[2].replace(pattern, '').trim()) throw new Error(`Invalid path at timestep ${timestep}.`);
+        if (solution.length && config.length !== solution[0].length) throw new Error('Agent count must be the same at every timestep.');
         solution.push(config);
     }
     return solution;
